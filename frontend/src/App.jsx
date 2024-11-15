@@ -1,4 +1,3 @@
-import "./App.css";
 import { useState, useEffect } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPaperPlane, faUser } from "@fortawesome/free-solid-svg-icons";
@@ -114,99 +113,98 @@ function App() {
   const currentMessages = conversations[recipientId] || [];
 
   return (
-    <>
-      <h1 className="title">☕ iChat</h1>
-      <div className="fullBody">
-        <div className="main flex">
-          <div className="userList">
-            <h3>Users:</h3>
-            <ul>
-              <li
-                key="All"
-                onClick={() => handleRecipientClick("All")}
-                className={recipientId === "All" ? "selectedUser" : ""}
-              >
-                All
-              </li>
-              {Object.keys(users).map(
-                (id) =>
-                  id !== socket.id && (
-                    <li
-                      key={id}
-                      onClick={() => handleRecipientClick(id)}
-                      className={id === recipientId ? "selectedUser" : ""}
-                    >
-                      {users[id]}
-                    </li>
-                  )
-              )}
-            </ul>
-          </div>
-          <div className="conversation">
-            <div className="name">
-              <span className="flex">
-                <FontAwesomeIcon icon={faUser} />
-                <input
-                  type="text"
-                  className="nameInput"
-                  id="nameInput"
-                  value={name}
-                  onChange={handleNameChange}
-                  maxLength="20"
-                />
-              </span>
-            </div>
-            <ul className="messageContainer" id="messageContainer">
-              {currentMessages.map((msg, index) => (
-                <li
-                  key={index}
-                  className={
-                    msg.senderId === socket.id ? "messageRight" : "messageLeft"
-                  }
-                >
-                  <p className="message">{msg.text}</p>
-                  <span>
-                    {msg.author} - {msg.date}
-                  </span>
-                </li>
-              ))}
-              {feedback && (
-                <li className="messageFeedback">
-                  <p className="feedback" id="feedback">
-                    {feedback}
-                  </p>
-                </li>
-              )}
-            </ul>
-            <form
-              className="messageForm"
-              id="messageForm"
-              onSubmit={handleSubmit}
+    <div className="max-w-6xl mx-auto p-6">
+      <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
+        ☕ iChat
+      </h1>
+      <div className="flex h-[90vh] bg-white rounded-lg shadow-lg overflow-hidden">
+        <div className="w-1/4 bg-gray-100 p-4 border-r border-gray-200">
+          <h3 className="text-lg font-semibold mb-4">Users:</h3>
+          <ul>
+            <li
+              key="All"
+              onClick={() => handleRecipientClick("All")}
+              className={`p-2 mb-2 rounded-lg cursor-pointer ${
+                recipientId === "All"
+                  ? "bg-blue-500 text-white"
+                  : "hover:bg-gray-200"
+              }`}
             >
-              <input
-                type="text"
-                name="message"
-                id="messageInput"
-                className="messageInput"
-                value={message}
-                onChange={handleMessageChange}
-                onKeyUp={handleTyping}
-              />
-              <div className="verticalDivider"></div>
-              <button type="submit" className="sendButton">
-                Send
-                <span>
-                  <FontAwesomeIcon icon={faPaperPlane} />
-                </span>
-              </button>
-            </form>
-            <h3 className="clientsTotal" id="ClientTotal">
-              Total Clients: {clientsTotal}
-            </h3>
+              All
+            </li>
+            {Object.keys(users).map(
+              (id) =>
+                id !== socket.id && (
+                  <li
+                    key={id}
+                    onClick={() => handleRecipientClick(id)}
+                    className={`p-2 mb-2 rounded-lg cursor-pointer ${
+                      id === recipientId
+                        ? "bg-blue-500 text-white"
+                        : "hover:bg-gray-200"
+                    }`}
+                  >
+                    {users[id]}
+                  </li>
+                )
+            )}
+          </ul>
+        </div>
+        <div className="flex-1 flex flex-col">
+          <div className="flex items-center bg-blue-500 text-white p-4">
+            <FontAwesomeIcon icon={faUser} />
+            <input
+              type="text"
+              className="bg-transparent border-none outline-none ml-3 flex-1"
+              value={name}
+              onChange={handleNameChange}
+              maxLength="20"
+            />
           </div>
+          <ul className="flex-1 p-4 overflow-y-auto bg-gray-50">
+            {currentMessages.map((msg, index) => (
+              <li
+                key={index}
+                className={`max-w-[60%] p-3 rounded-lg mb-3 text-sm ${
+                  msg.senderId === socket.id
+                    ? "bg-blue-500 text-white ml-auto"
+                    : "bg-gray-200 text-gray-800"
+                }`}
+              >
+                <p>{msg.text}</p>
+                <span className="text-xs block mt-1">
+                  {msg.author} - {msg.date}
+                </span>
+              </li>
+            ))}
+            {feedback && (
+              <li className="italic text-gray-500 text-center">{feedback}</li>
+            )}
+          </ul>
+          <form
+            className="flex items-center border-t border-gray-200 p-4"
+            onSubmit={handleSubmit}
+          >
+            <input
+              type="text"
+              className="flex-1 p-3 rounded-full border border-gray-300 outline-none focus:ring focus:ring-blue-300"
+              value={message}
+              onChange={handleMessageChange}
+              onKeyUp={handleTyping}
+            />
+            <button
+              type="submit"
+              className="ml-4 bg-blue-500 text-white px-4 py-2 rounded-full hover:bg-blue-600"
+            >
+              Send <FontAwesomeIcon icon={faPaperPlane} className="ml-2" />
+            </button>
+          </form>
+          <h3 className="text-sm text-gray-500 text-center p-2">
+            Total Clients: {clientsTotal}
+          </h3>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
