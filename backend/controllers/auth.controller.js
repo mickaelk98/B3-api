@@ -24,7 +24,6 @@ exports.signup = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    console.log(username, email, password, role);
     const userObject = new User({
       username,
       email,
@@ -34,13 +33,12 @@ exports.signup = async (req, res) => {
 
 
     const newUser = await userObject.save();
+    const user = await User.findById(newUser._doc._id).select("-password");
     res.status(201).json({
       message: "L'utilisateur a bien été crée !",
-      user: newUser,
+      user,
     });
 
-    // si la l'inscription s'est bien passé
-    res.status(201).json({ message: "votre compte a été crée" });
   } catch (error) {
     res.status(404).json({ message: "erreur serveur", error });
   }
@@ -48,18 +46,18 @@ exports.signup = async (req, res) => {
 
 // controller de connexion
 exports.login = async (req, res) => {
-  const { email, password } = req.body;
 
   // recherche l'utilisateur dans la base de donnée
   const user = await User.findOne({ email: req.body.email });
+
 
   // si l'utilisateur n'existe pas
   if (!user) {
     return res
       .status(401)
-      .json({ message: "Identifiant ou mot de pass invalid" });
+      .json({ message: "Identifiant ou mot de pass invalide" });
   } else {
-    const validPassword = await bcrypt.compare(password, user.password);
+    const validPassword = await bcrypt.compare(req.body.password, user.password);
 
     // si le mot de passe de la requete ne correspond pas a celui dans la base de donnée
     if (!validPassword) {
@@ -67,6 +65,7 @@ exports.login = async (req, res) => {
         .status(401)
         .json({ message: "Identifiant ou mot de pass invalid" });
     } else {
+      const newUser = await User.findById(user._id).select("-password");
       const token = jwt.sign(
         { userId: user._id, role: user.role },
         process.env.JWT_KEY,
@@ -75,10 +74,8 @@ exports.login = async (req, res) => {
           expiresIn: 3600 * 24 * 7,
         }
       );
-
       // renvoi l'utilisateur et un token pour identifier chaque requete
-      res.cookie("token", token);
-      res.status(200).json({ user, token });
+      res.status(200).json({ newUser, token });
     }
   }
 };

@@ -6,6 +6,7 @@ const swaggerJsdoc = require("swagger-jsdoc");
 const socket = require("socket.io");
 const cors = require("cors");
 const http = require("http");
+const boduyParser = require("body-parser");
 require("./config/db.config");
 
 const app = express();
@@ -16,6 +17,7 @@ const userRoutes = require("./routes/user.routes");
 const authRoutes = require("./routes/auth.routes");
 const productRoutes = require("./routes/product.routes");
 const orderRoutes = require("./routes/order.routes");
+const path = require("path");
 
 // Configuration des options Swagger
 const swaggerOptions = {
@@ -58,6 +60,8 @@ app.use((req, res, next) => {
 
 //* Intercepte les cookies
 app.use(cookie());
+
+app.use(boduyParser.urlencoded({ extended: true }));
 
 //* Intercepte les requêtes JSON
 app.use(express.json());

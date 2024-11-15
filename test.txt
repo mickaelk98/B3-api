@@ -1,0 +1,211 @@
+import { useState, useEffect } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faPaperPlane, faUser } from "@fortawesome/free-solid-svg-icons";
+import { io } from "socket.io-client";
+
+const socket = io("http://localhost:4000"); // Update with your server's URL
+
+function Chat() {
+  const [name, setName] = useState("anonymous");
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [feedback, setFeedback] = useState("");
+  const [clientsTotal, setClientsTotal] = useState(0);
+  const [users, setUsers] = useState({});
+  const [recipientId, setRecipientId] = useState("All");
+  const [conversations, setConversations] = useState({ All: [] });
+
+  useEffect(() => {
+    socket.emit("setUsername", name);
+
+    socket.on("message", (newMessage) => {
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      setConversations((prevConversations) => ({
+        ...prevConversations,
+        All: [...prevConversations.All, newMessage],
+      }));
+    });
+
+    socket.on("privateMessage", (newMessage) => {
+      const recipientKey =
+        newMessage.senderId === socket.id
+          ? newMessage.recipientId
+          : newMessage.senderId;
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      setConversations((prevConversations) => ({
+        ...prevConversations,
+        [recipientKey]: [
+          ...(prevConversations[recipientKey] || []),
+          newMessage,
+        ],
+      }));
+    });
+
+    socket.on("typing", ({ recipientId: typingRecipientId, feedback }) => {
+      if (typingRecipientId === recipientId) {
+        setFeedback(feedback);
+      }
+    });
+
+    socket.on("clientsTotal", (totalClients) => {
+      setClientsTotal(totalClients);
+    });
+
+    socket.on("updateUserList", (userList) => {
+      setUsers(userList);
+    });
+
+    return () => {
+      socket.off("message");
+      socket.off("privateMessage");
+      socket.off("typing");
+      socket.off("clientsTotal");
+      socket.off("updateUserList");
+    };
+  }, [name, recipientId]);
+
+  const handleNameChange = (e) => {
+    setName(e.target.value);
+    socket.emit("setUsername", e.target.value);
+  };
+
+  const handleMessageChange = (e) => {
+    setMessage(e.target.value);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (message.trim() !== "") {
+      const newMessage = {
+        text: message,
+        author: name,
+        date: new Date().toLocaleString(),
+        senderId: socket.id,
+        recipientId: recipientId === "All" ? "All" : recipientId,
+      };
+      if (recipientId === "All") {
+        socket.emit("message", newMessage);
+      } else {
+        socket.emit("privateMessage", { recipientId, message });
+      }
+      setMessage("");
+      setFeedback("");
+      socket.emit("stopTyping", recipientId);
+    }
+  };
+
+  const handleTyping = (e) => {
+    socket.emit("typing", {
+      recipientId,
+      feedback: `${name} is typing a message...`,
+    });
+
+    if (e.key === "Enter" || e.target.value === "") {
+      socket.emit("stopTyping", recipientId);
+    }
+  };
+
+  const handleRecipientClick = (id) => {
+    setRecipientId(id);
+    setFeedback(""); // Clear typing feedback when switching conversations
+  };
+
+  const currentMessages = conversations[recipientId] || [];
+
+  return (
+    <div className="max-w-6xl mx-auto p-6">
+      <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
+        ☕ iChat
+      </h1>
+      <div className="flex h-[90vh] bg-white rounded-lg shadow-lg overflow-hidden">
+        <div className="w-1/4 bg-gray-100 p-4 border-r border-gray-200">
+          <h3 className="text-lg font-semibold mb-4">Users:</h3>
+          <ul>
+            <li
+              key="All"
+              onClick={() => handleRecipientClick("All")}
+              className={`p-2 mb-2 rounded-lg cursor-pointer ${
+                recipientId === "All"
+                  ? "bg-blue-500 text-white"
+                  : "hover:bg-gray-200"
+              }`}
+            >
+              All
+            </li>
+            {Object.keys(users).map(
+              (id) =>
+                id !== socket.id && (
+                  <li
+                    key={id}
+                    onClick={() => handleRecipientClick(id)}
+                    className={`p-2 mb-2 rounded-lg cursor-pointer ${
+                      id === recipientId
+                        ? "bg-blue-500 text-white"
+                        : "hover:bg-gray-200"
+                    }`}
+                  >
+                    {users[id]}
+                  </li>
+                )
+            )}
+          </ul>
+        </div>
+        <div className="flex-1 flex flex-col">
+          <div className="flex items-center bg-blue-500 text-white p-4">
+            <FontAwesomeIcon icon={faUser} />
+            <input
+              type="text"
+              className="bg-transparent border-none outline-none ml-3 flex-1"
+              value={name}
+              onChange={handleNameChange}
+              maxLength="20"
+            />
+          </div>
+          <ul className="flex-1 p-4 overflow-y-auto bg-gray-50">
+            {currentMessages.map((msg, index) => (
+              <li
+                key={index}
+                className={`max-w-[60%] p-3 rounded-lg mb-3 text-sm ${
+                  msg.senderId === socket.id
+                    ? "bg-blue-500 text-white ml-auto"
+                    : "bg-gray-200 text-gray-800"
+                }`}
+              >
+                <p>{msg.text}</p>
+                <span className="text-xs block mt-1">
+                  {msg.author} - {msg.date}
+                </span>
+              </li>
+            ))}
+            {feedback && (
+              <li className="italic text-gray-500 text-center">{feedback}</li>
+            )}
+          </ul>
+          <form
+            className="flex items-center border-t border-gray-200 p-4"
+            onSubmit={handleSubmit}
+          >
+            <input
+              type="text"
+              className="flex-1 p-3 rounded-full border border-gray-300 outline-none focus:ring focus:ring-blue-300"
+              value={message}
+              onChange={handleMessageChange}
+              onKeyUp={handleTyping}
+            />
+            <button
+              type="submit"
+              className="ml-4 bg-blue-500 text-white px-4 py-2 rounded-full hover:bg-blue-600"
+            >
+              Send <FontAwesomeIcon icon={faPaperPlane} className="ml-2" />
+            </button>
+          </form>
+          <h3 className="text-sm text-gray-500 text-center p-2">
+            Total Clients: {clientsTotal}
+          </h3>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Chat;
