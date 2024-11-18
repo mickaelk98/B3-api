@@ -7,7 +7,6 @@ let socket; // Update with your server's URL
 
 function Chat() {
   const { user } = useContext(AuthContext);
-  const [name, setName] = useState("anonymous");
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [feedback, setFeedback] = useState("");
@@ -21,8 +20,6 @@ function Chat() {
     if (user) {
       if (!socket) {
         socket = io("http://localhost:4000");
-
-        socket.emit("setUsername", name);
 
         socket.on("message", (newMessage) => {
           setMessages((prevMessages) => [...prevMessages, newMessage]);
@@ -70,12 +67,7 @@ function Chat() {
         socket = null;
       }
     };
-  }, [user, name, recipientId]);
-
-  const handleNameChange = (e) => {
-    setName(e.target.value);
-    socket.emit("setUsername", e.target.value);
-  };
+  }, [user, recipientId]);
 
   const handleMessageChange = (e) => {
     setMessage(e.target.value);
@@ -105,7 +97,7 @@ function Chat() {
   const handleTyping = (e) => {
     socket.emit("typing", {
       recipientId,
-      feedback: `${name} is typing a message...`,
+      feedback: `${user.username} is typing a message...`,
     });
 
     if (e.key === "Enter" || e.target.value === "") {
