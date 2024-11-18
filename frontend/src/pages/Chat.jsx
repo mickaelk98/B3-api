@@ -3,11 +3,10 @@ import { Navigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { io } from "socket.io-client";
 
-const socket = io("http://localhost:4000"); // Update with your server's URL
+let socket; // Update with your server's URL
 
-function ChatWithMessengerUI() {
+function Chat() {
   const { user } = useContext(AuthContext);
-
   const [name, setName] = useState("anonymous");
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
@@ -18,53 +17,60 @@ function ChatWithMessengerUI() {
   const [conversations, setConversations] = useState({ All: [] });
 
   useEffect(() => {
-    socket.emit("setUsername", name);
+    // connexionau socket uniquement si l'utilisateur est connecté
+    if (user) {
+      if (!socket) {
+        socket = io("http://localhost:4000");
 
-    socket.on("message", (newMessage) => {
-      setMessages((prevMessages) => [...prevMessages, newMessage]);
-      setConversations((prevConversations) => ({
-        ...prevConversations,
-        All: [...prevConversations.All, newMessage],
-      }));
-    });
+        socket.emit("setUsername", name);
 
-    socket.on("privateMessage", (newMessage) => {
-      const recipientKey =
-        newMessage.senderId === socket.id
-          ? newMessage.recipientId
-          : newMessage.senderId;
-      setMessages((prevMessages) => [...prevMessages, newMessage]);
-      setConversations((prevConversations) => ({
-        ...prevConversations,
-        [recipientKey]: [
-          ...(prevConversations[recipientKey] || []),
-          newMessage,
-        ],
-      }));
-    });
+        socket.on("message", (newMessage) => {
+          setMessages((prevMessages) => [...prevMessages, newMessage]);
+          setConversations((prevConversations) => ({
+            ...prevConversations,
+            All: [...prevConversations.All, newMessage],
+          }));
+        });
 
-    socket.on("typing", ({ recipientId: typingRecipientId, feedback }) => {
-      if (typingRecipientId === recipientId) {
-        setFeedback(feedback);
+        socket.on("privateMessage", (newMessage) => {
+          const recipientKey =
+            newMessage.senderId === socket.id
+              ? newMessage.recipientId
+              : newMessage.senderId;
+          setMessages((prevMessages) => [...prevMessages, newMessage]);
+          setConversations((prevConversations) => ({
+            ...prevConversations,
+            [recipientKey]: [
+              ...(prevConversations[recipientKey] || []),
+              newMessage,
+            ],
+          }));
+        });
+
+        socket.on("typing", ({ recipientId: typingRecipientId, feedback }) => {
+          if (typingRecipientId === recipientId) {
+            setFeedback(feedback);
+          }
+        });
+
+        socket.on("clientsTotal", (totalClients) => {
+          setClientsTotal(totalClients);
+        });
+
+        socket.on("updateUserList", (userList) => {
+          setUsers(userList);
+        });
       }
-    });
-
-    socket.on("clientsTotal", (totalClients) => {
-      setClientsTotal(totalClients);
-    });
-
-    socket.on("updateUserList", (userList) => {
-      setUsers(userList);
-    });
+    }
 
     return () => {
-      socket.off("message");
-      socket.off("privateMessage");
-      socket.off("typing");
-      socket.off("clientsTotal");
-      socket.off("updateUserList");
+      // Déconnecter le socket lorsque l'utilisateur se deconnecte
+      if (!user) {
+        socket.disconnect();
+        socket = null;
+      }
     };
-  }, [name, recipientId]);
+  }, [user, name, recipientId]);
 
   const handleNameChange = (e) => {
     setName(e.target.value);
@@ -238,4 +244,4 @@ function ChatWithMessengerUI() {
   );
 }
 
-export default ChatWithMessengerUI;
+export default Chat;
