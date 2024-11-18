@@ -67,7 +67,10 @@ app.use(boduyParser.urlencoded({ extended: true }));
 app.use(express.json());
 
 //* Configuration des CORS
-app.use(cors());
+app.use(cors({
+  origin: "http://localhost:5173",
+  credentials: true
+}));
 
 //* socket.io
 const server = http.createServer(app);

@@ -29,12 +29,12 @@ export async function login(data) {
         body: JSON.stringify(data),
     });
 
-    const result = await response.json();
+    const { newUser, token } = await response.json();
 
     if (response.status === 200) {
-        document.cookie = `token=${result.token}; path=/;`;
-        return result;
+        document.cookie = `token=${token}; path=/;`;
+        return newUser;
     } else {
-        throw result;
+        throw newUser;
     }
 }

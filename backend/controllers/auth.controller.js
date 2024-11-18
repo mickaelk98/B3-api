@@ -34,10 +34,7 @@ exports.signup = async (req, res) => {
 
     const newUser = await userObject.save();
     const user = await User.findById(newUser._doc._id).select("-password");
-    res.status(201).json({
-      message: "L'utilisateur a bien été crée !",
-      user,
-    });
+    res.status(201).json(user);
 
   } catch (error) {
     res.status(404).json({ message: "erreur serveur", error });
@@ -80,8 +77,35 @@ exports.login = async (req, res) => {
   }
 };
 
+
+exports.getCurrentUser = async (req, res) => {
+  try {
+    // recuperation du token
+    const { token } = req.cookies;
+    if (token) {
+
+      // verification de l'authenticité du token et erecuperation du user
+      const decodedToken = jwt.verify(token, process.env.JWT_KEY);
+      const currentUser = await User.findById(decodedToken.userId).select("-password");
+
+      if (currentUser) {
+        res.status(200).json(currentUser);
+      } else {
+        res.status(401).json(null);
+      }
+
+
+    } else {
+      res.status(401).json(null);
+    }
+  } catch (err) {
+    res.status(401).json(null);
+  }
+}
 // controller de deconnexion
 exports.logout = (req, res) => {
   res.clearCookie("token");
   res.status(200).json({ message: "cookie supprimé" });
 };
+
+

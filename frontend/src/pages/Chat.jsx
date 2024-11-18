@@ -1,127 +1,222 @@
-import React, { useState } from "react";
+import { useState, useEffect, useContext } from "react";
+import { Navigate } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faPaperPlane, faUser } from "@fortawesome/free-solid-svg-icons";
+import { io } from "socket.io-client";
 
-const conversations = [
-  { id: 1, name: "Alice", lastMessage: "Salut, comment ça va ?" },
-  { id: 2, name: "Bob", lastMessage: "On se voit demain ?" },
-  { id: 3, name: "Charlie", lastMessage: "J'ai terminé le projet !" },
-];
+const socket = io("http://localhost:4000"); // Update with your server's URL
 
-const MessengerPage = () => {
-  const [activeConversation, setActiveConversation] = useState(null);
-  const [messages, setMessages] = useState({
-    1: [
-      { sender: "Alice", text: "Salut, comment ça va ?" },
-      { sender: "Me", text: "Très bien, et toi ?" },
-    ],
-    2: [{ sender: "Bob", text: "On se voit demain ?" }],
-    3: [{ sender: "Charlie", text: "J'ai terminé le projet !" }],
-  });
+function Chat() {
+  const { user } = useContext(AuthContext);
+  const [name, setName] = useState("anonymous");
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [feedback, setFeedback] = useState("");
+  const [clientsTotal, setClientsTotal] = useState(0);
+  const [users, setUsers] = useState({});
+  const [recipientId, setRecipientId] = useState("All");
+  const [conversations, setConversations] = useState({ All: [] });
 
-  const [newMessage, setNewMessage] = useState("");
+  useEffect(() => {
+    socket.emit("setUsername", name);
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim()) return;
+    socket.on("message", (newMessage) => {
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      setConversations((prevConversations) => ({
+        ...prevConversations,
+        All: [...prevConversations.All, newMessage],
+      }));
+    });
 
-    setMessages((prev) => ({
-      ...prev,
-      [activeConversation]: [
-        ...(prev[activeConversation] || []),
-        { sender: "Me", text: newMessage.trim() },
-      ],
-    }));
+    socket.on("privateMessage", (newMessage) => {
+      const recipientKey =
+        newMessage.senderId === socket.id
+          ? newMessage.recipientId
+          : newMessage.senderId;
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      setConversations((prevConversations) => ({
+        ...prevConversations,
+        [recipientKey]: [
+          ...(prevConversations[recipientKey] || []),
+          newMessage,
+        ],
+      }));
+    });
 
-    setNewMessage("");
+    socket.on("typing", ({ recipientId: typingRecipientId, feedback }) => {
+      if (typingRecipientId === recipientId) {
+        setFeedback(feedback);
+      }
+    });
+
+    socket.on("clientsTotal", (totalClients) => {
+      setClientsTotal(totalClients);
+    });
+
+    socket.on("updateUserList", (userList) => {
+      setUsers(userList);
+    });
+
+    return () => {
+      socket.off("message");
+      socket.off("privateMessage");
+      socket.off("typing");
+      socket.off("clientsTotal");
+      socket.off("updateUserList");
+    };
+  }, [name, recipientId]);
+
+  const handleNameChange = (e) => {
+    setName(e.target.value);
+    socket.emit("setUsername", e.target.value);
   };
 
+  const handleMessageChange = (e) => {
+    setMessage(e.target.value);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (message.trim() !== "") {
+      const newMessage = {
+        text: message,
+        author: name,
+        date: new Date().toLocaleString(),
+        senderId: socket.id,
+        recipientId: recipientId === "All" ? "All" : recipientId,
+      };
+      if (recipientId === "All") {
+        socket.emit("message", newMessage);
+      } else {
+        socket.emit("privateMessage", { recipientId, message });
+      }
+      setMessage("");
+      setFeedback("");
+      socket.emit("stopTyping", recipientId);
+    }
+  };
+
+  const handleTyping = (e) => {
+    socket.emit("typing", {
+      recipientId,
+      feedback: `${name} is typing a message...`,
+    });
+
+    if (e.key === "Enter" || e.target.value === "") {
+      socket.emit("stopTyping", recipientId);
+    }
+  };
+
+  const handleRecipientClick = (id) => {
+    setRecipientId(id);
+    setFeedback(""); // Clear typing feedback when switching conversations
+  };
+
+  const currentMessages = conversations[recipientId] || [];
+
   return (
-    <div className="flex h-screen w-full">
-      {/* Sidebar - Liste des conversations */}
-      <div className="w-1/3 bg-gray-200 p-4 border-r border-gray-300">
-        <h2 className="text-xl font-bold mb-4">Discussions</h2>
-        <ul>
-          {conversations.map((conversation) => (
-            <li
-              key={conversation.id}
-              className={`p-3 mb-2 rounded-lg cursor-pointer ${
-                activeConversation === conversation.id
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-100 hover:bg-gray-300"
-              }`}
-              onClick={() => setActiveConversation(conversation.id)}
-            >
-              <p className="font-medium">{conversation.name}</p>
-              <p className="text-sm text-gray-600 truncate">
-                {conversation.lastMessage}
-              </p>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Main Chat Window */}
-      <div className="flex-1 flex flex-col">
-        {activeConversation ? (
-          <>
-            {/* Chat Header */}
-            <div className="p-4 bg-gray-100 border-b border-gray-300">
-              <h2 className="text-lg font-bold">
-                {
-                  conversations.find((conv) => conv.id === activeConversation)
-                    ?.name
-                }
-              </h2>
-            </div>
-
-            {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-              {(messages[activeConversation] || []).map((message, index) => (
-                <div
-                  key={index}
-                  className={`mb-4 ${
-                    message.sender === "Me" ? "text-right" : "text-left"
+    <>
+      {!user ? (
+        <Navigate to="/signup" />
+      ) : (
+        <div className="max-w-6xl mx-auto p-6">
+          <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
+            ☕ iChat
+          </h1>
+          <div className="flex h-[90vh] bg-white rounded-lg shadow-lg overflow-hidden">
+            <div className="w-1/4 bg-gray-100 p-4 border-r border-gray-200">
+              <h3 className="text-lg font-semibold mb-4">Users:</h3>
+              <ul>
+                <li
+                  key="All"
+                  onClick={() => handleRecipientClick("All")}
+                  className={`p-2 mb-2 rounded-lg cursor-pointer ${
+                    recipientId === "All"
+                      ? "bg-blue-500 text-white"
+                      : "hover:bg-gray-200"
                   }`}
                 >
-                  <p
-                    className={`inline-block px-4 py-2 rounded-lg ${
-                      message.sender === "Me"
-                        ? "bg-blue-500 text-white"
+                  All
+                </li>
+                {Object.keys(users).map(
+                  (id) =>
+                    id !== socket.id && (
+                      <li
+                        key={id}
+                        onClick={() => handleRecipientClick(id)}
+                        className={`p-2 mb-2 rounded-lg cursor-pointer ${
+                          id === recipientId
+                            ? "bg-blue-500 text-white"
+                            : "hover:bg-gray-200"
+                        }`}
+                      >
+                        {users[id]}
+                      </li>
+                    )
+                )}
+              </ul>
+            </div>
+            <div className="flex-1 flex flex-col">
+              <div className="flex items-center bg-blue-500 text-white p-4">
+                <FontAwesomeIcon icon={faUser} />
+                <input
+                  type="text"
+                  className="bg-transparent border-none outline-none ml-3 flex-1"
+                  value={name}
+                  onChange={handleNameChange}
+                  maxLength="20"
+                />
+              </div>
+              <ul className="flex-1 p-4 overflow-y-auto bg-gray-50">
+                {currentMessages.map((msg, index) => (
+                  <li
+                    key={index}
+                    className={`max-w-[60%] p-3 rounded-lg mb-3 text-sm ${
+                      msg.senderId === socket.id
+                        ? "bg-blue-500 text-white ml-auto"
                         : "bg-gray-200 text-gray-800"
                     }`}
                   >
-                    {message.text}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            {/* Message Input */}
-            <div className="p-4 bg-gray-100 border-t border-gray-300">
-              <div className="flex items-center">
+                    <p>{msg.text}</p>
+                    <span className="text-xs block mt-1">
+                      {msg.author} - {msg.date}
+                    </span>
+                  </li>
+                ))}
+                {feedback && (
+                  <li className="italic text-gray-500 text-center">
+                    {feedback}
+                  </li>
+                )}
+              </ul>
+              <form
+                className="flex items-center border-t border-gray-200 p-4"
+                onSubmit={handleSubmit}
+              >
                 <input
                   type="text"
-                  placeholder="Écrire un message..."
-                  className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+                  className="flex-1 p-3 rounded-full border border-gray-300 outline-none focus:ring focus:ring-blue-300"
+                  value={message}
+                  onChange={handleMessageChange}
+                  onKeyUp={handleTyping}
                 />
                 <button
-                  className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none"
-                  onClick={handleSendMessage}
+                  type="submit"
+                  className="ml-4 bg-blue-500 text-white px-4 py-2 rounded-full hover:bg-blue-600"
                 >
-                  Envoyer
+                  Send <FontAwesomeIcon icon={faPaperPlane} className="ml-2" />
                 </button>
-              </div>
+              </form>
+              <h3 className="text-sm text-gray-500 text-center p-2">
+                Total Clients: {clientsTotal}
+              </h3>
             </div>
-          </>
-        ) : (
-          <div className="flex items-center justify-center flex-1 text-gray-500">
-            <p>Sélectionnez une discussion pour commencer à chatter</p>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </>
   );
-};
+}
 
-export default MessengerPage;
+export default Chat;

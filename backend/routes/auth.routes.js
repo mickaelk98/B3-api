@@ -115,5 +115,6 @@ const validateCredentials = require("../middleware/validateCredentials");
 router.post("/signup", validateSignin, authCtrl.signup);
 router.post("/login", validateCredentials, authCtrl.login);
 router.post("/logout", authCtrl.logout);
+router.get("/", authCtrl.getCurrentUser);
 
 module.exports = router;

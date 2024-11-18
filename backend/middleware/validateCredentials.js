@@ -15,13 +15,8 @@ module.exports = (req, res, next) => {
       .min(6, { message: "Le mot de passe doit avoir au moins 6 caractères." }),
   });
 
-  console.log("boy depuis la validation : ", req.body);
-
   // Validation des données
   const validation = userValidationSchema.safeParse(req.body);
-
-  // Log pour déboguer
-  console.log("Validation result:", JSON.stringify(validation, null, 2)); // Log plus détaillé
 
   if (!validation.success) {
     // Collecte des messages d'erreur
