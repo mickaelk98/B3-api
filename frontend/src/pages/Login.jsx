@@ -96,7 +96,7 @@ const Login = () => {
             </button>
           </form>
           <NavLink to="/signup">
-            <span className="my-5 block">Je n'ai pas de compte</span>
+            <span className="my-5 block">Je n&apos;ai pas de compte</span>
           </NavLink>
         </div>
       )}

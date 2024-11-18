@@ -57,7 +57,7 @@ const Signup = () => {
                 htmlFor="username"
                 className="block text-gray-800 font-medium"
               >
-                Nom d'utilisateur
+                Nom d&apos;utilisateur
               </label>
               <input
                 id="username"
@@ -134,11 +134,11 @@ const Signup = () => {
               type="submit"
               className="w-full bg-blue-500 text-white rounded-lg shadow-lg p-2 font-medium hover:bg-blue-600 transition"
             >
-              S'inscrire
+              S&apos;inscrire
             </button>
           </form>
           <NavLink to="/login">
-            <span className="my-5 block">J'ai déja un compte</span>
+            <span className="my-5 block">J&apos;ai déja un compte</span>
           </NavLink>
         </div>
       )}
